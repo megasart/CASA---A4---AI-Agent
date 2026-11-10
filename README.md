@@ -119,27 +119,3 @@ npm test
 ~~~
 
 The tests exercise the safe calculator, read-only execution, confirmation gating, note creation, and workspace isolation using a temporary directory.
-
-## Deployment
-
-Deploy the repository to any Node 20 host that can run npm run start. Set PORT if the platform requires it. Set LLM_API_KEY, LLM_BASE_URL, and LLM_MODEL as server-side secrets. Use a persistent disk if the workspace and audit history must survive restarts; otherwise the app remains a functional ephemeral demo.
-
-For a public class demo, keep the action set small and use a separate API key with a spending limit. The app is intentionally not a general shell agent.
-
-## Demo video script
-
-A concise 1–2 minute demonstration can follow this sequence:
-
-1. Introduce the problem: generated text is not the same as a safe action.
-2. Ask ActionPilot to list workspace files and show the read-only plan.
-3. Run a calculator request and point out the structured result.
-4. Ask it to create a note; show the CONFIRM badge and click confirmation.
-5. Refresh the workspace and explain that the audit log records the plan and execution.
-6. Close by showing the LLM/Demo mode indicator and the safety model card.
-
-## Submission checklist
-
-- Push this project to a GitHub repository and submit its URL.
-- Deploy the app and submit the live URL.
-- Record the short demo video and submit its link.
-- Submit all three links through the assignment Google Form.
