@@ -1,0 +1,6 @@
+node_modules/
+.env
+.DS_Store
+data/workspace/.agent-audit.log
+data/workspace/.agent-notes.json
+npm-debug.log*

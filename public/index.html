@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="ActionPilot is a safe, auditable AI agent for workspace and productivity tasks." />
+    <title>ActionPilot | Safe AI Agent</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="ActionPilot home">
+          <span class="brand-mark">A</span>
+          <span>
+            <strong>ActionPilot</strong>
+            <small>safe AI agent</small>
+          </span>
+        </a>
+        <div class="topbar-meta">
+          <span class="status-dot" id="status-dot"></span>
+          <span id="mode-label">Checking planner...</span>
+        </div>
+      </header>
+
+      <main>
+        <section class="hero">
+          <div class="eyebrow">PROMPT ENGINEERING PROJECT</div>
+          <h1>Turn natural language into <span>reviewable actions.</span></h1>
+          <p class="hero-copy">
+            ActionPilot plans requests with an LLM, validates every step against a safe allowlist,
+            asks before changing data, and records what happened.
+          </p>
+          <div class="hero-pills">
+            <span>Structured plans</span>
+            <span>Confirmation gates</span>
+            <span>Audit trail</span>
+          </div>
+        </section>
+
+        <section class="workspace-grid" aria-label="Agent workspace">
+          <div class="main-column">
+            <article class="card request-card">
+              <div class="card-heading">
+                <div>
+                  <div class="section-kicker">01 / REQUEST</div>
+                  <h2>What should I do?</h2>
+                </div>
+                <span class="helper-badge">Natural language</span>
+              </div>
+              <form id="request-form">
+                <label class="sr-only" for="request-input">Describe a task</label>
+                <textarea id="request-input" rows="5" maxlength="4000" placeholder="Try: list my files, read README.txt, or calculate 12 * (3 + 4)."></textarea>
+                <div class="form-footer">
+                  <span class="hint">The agent will show a plan before it executes anything.</span>
+                  <button class="primary-button" type="submit" id="plan-button">
+                    <span>Build plan</span>
+                    <span aria-hidden="true">→</span>
+                  </button>
+                </div>
+              </form>
+              <div class="quick-start">
+                <span>Try an example</span>
+                <button type="button" data-example="List the files in my workspace">List files</button>
+                <button type="button" data-example="Read file README.txt">Read a file</button>
+                <button type="button" data-example="Calculate 12 * (3 + 4)">Calculate</button>
+                <button type="button" data-example="Create a note titled &quot;Demo&quot; saying follow up on the project">Create note</button>
+              </div>
+            </article>
+
+            <article class="card plan-card" id="plan-card">
+              <div class="empty-state">
+                <div class="empty-icon">✦</div>
+                <h2>Your plan will appear here</h2>
+                <p>Review the exact actions and reasons before you run them.</p>
+              </div>
+            </article>
+
+            <article class="card results-card" id="results-card" hidden>
+              <div class="card-heading">
+                <div>
+                  <div class="section-kicker">03 / RESULT</div>
+                  <h2>Execution report</h2>
+                </div>
+                <span class="result-status" id="result-status"></span>
+              </div>
+              <div id="results-list" class="results-list"></div>
+            </article>
+          </div>
+
+          <aside class="side-column">
+            <article class="card safety-card">
+              <div class="section-kicker">SAFETY MODEL</div>
+              <h2>Human in the loop</h2>
+              <p>Every plan is validated on the server. State-changing actions pause until you confirm them.</p>
+              <div class="safety-row"><span class="safety-icon green">✓</span><span>Allowlisted actions only</span></div>
+              <div class="safety-row"><span class="safety-icon green">✓</span><span>Workspace path sandbox</span></div>
+              <div class="safety-row"><span class="safety-icon amber">!</span><span>Confirmation for changes</span></div>
+              <div class="safety-row"><span class="safety-icon blue">↗</span><span>JSONL audit trail</span></div>
+            </article>
+
+            <article class="card files-card">
+              <div class="card-heading compact">
+                <div>
+                  <div class="section-kicker">WORKSPACE</div>
+                  <h2>Safe demo files</h2>
+                </div>
+                <button class="icon-button" type="button" id="refresh-button" aria-label="Refresh workspace">↻</button>
+              </div>
+              <div id="workspace-files" class="file-list">
+                <div class="loading-line">Loading workspace...</div>
+              </div>
+              <div class="notes-summary" id="notes-summary"></div>
+            </article>
+
+            <article class="card rubric-card">
+              <div class="section-kicker">PROJECT FIT</div>
+              <h2>Built for the rubric</h2>
+              <div class="rubric-item"><span>01</span><strong>LLM integration</strong></div>
+              <div class="rubric-item"><span>02</span><strong>Action interpreter</strong></div>
+              <div class="rubric-item"><span>03</span><strong>UI and status feedback</strong></div>
+              <div class="rubric-item"><span>04</span><strong>Safety and logging</strong></div>
+            </article>
+          </aside>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <span>ActionPilot · CS4680 Assignment 4</span>
+        <span>Safe by design, observable by default.</span>
+      </footer>
+    </div>
+    <div id="live-region" class="sr-only" aria-live="polite"></div>
+    <script src="/app.js" defer></script>
+  </body>
+</html>

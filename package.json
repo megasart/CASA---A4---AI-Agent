@@ -1,0 +1,15 @@
+{
+  "name": "actionpilot-ai-agent",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A safe, auditable AI agent for workspace and productivity tasks.",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
