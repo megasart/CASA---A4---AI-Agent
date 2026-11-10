@@ -59,12 +59,73 @@ function showError(message) {
   elements.planCard.append(box);
 }
 
+async function requestJson(url, options, fallbackMessage) {
+  let response;
+  try {
+    response = await fetch(url, options);
+  } catch {
+    const error = new Error("The ActionPilot service could not be reached.");
+    error.code = "NETWORK_ERROR";
+    throw error;
+  }
+
+  let payload;
+  try {
+    payload = await response.json();
+  } catch {
+    const error = new Error("The server returned an unexpected response.");
+    error.code = "SERVER_ERROR";
+    error.status = response.status;
+    throw error;
+  }
+
+  if (!response.ok) {
+    const error = new Error(payload.error || fallbackMessage);
+    error.code = payload.code || "SERVER_ERROR";
+    error.status = response.status;
+    error.details = payload.details;
+    throw error;
+  }
+
+  return payload;
+}
+
 function friendlyError(error) {
   const message = String(error?.message || error || "Unknown error");
-  if (/network|failed to fetch|fetch resource/i.test(message)) {
-    return "The browser cannot reach the ActionPilot backend. Locally, run npm.cmd start and open http://localhost:3000. For deployment, deploy the Node server with npm start rather than only the public folder.";
+  const code = error?.code || "";
+  const retryAfter = error?.details?.retryAfter;
+
+  if (code === "LLM_PROVIDER_ERROR" || /valid api key|authentication|unauthorized/i.test(message)) {
+    return "The AI service could not authenticate this request. Check the LLM_API_KEY in the hosting environment, then redeploy.";
   }
-  return message;
+  if (code === "LLM_TIMEOUT" || /timed out|timeout/i.test(message)) {
+    return "The AI service took too long to respond. Please try again in a moment.";
+  }
+  if (code === "LLM_RATE_LIMITED" || code === "RATE_LIMITED") {
+    return retryAfter ? "The AI service is temporarily busy. Please try again in about " + retryAfter + " seconds." : "The service is temporarily busy. Please try again in a moment.";
+  }
+  if (code === "LLM_NETWORK_ERROR") {
+    return "The AI service could not be reached. Check the provider connection and try again.";
+  }
+  if (code === "INVALID_LLM_RESPONSE") {
+    return "The AI service returned an unreadable plan. Please try the request again.";
+  }
+  if (code === "INVALID_PATH") {
+    return "That file path is not allowed. Use a file inside the workspace, such as README.txt.";
+  }
+  if (code === "FILE_EXISTS") {
+    return "That file already exists. Choose a different name or explicitly request an overwrite.";
+  }
+  if (code === "PLAN_NOT_FOUND") {
+    return "That plan expired. Please build the plan again.";
+  }
+  if (code === "NETWORK_ERROR" || /network|failed to fetch|fetch resource/i.test(message)) {
+    return "The ActionPilot service could not be reached. Check your connection and try again.";
+  }
+  if (code === "SERVER_ERROR") {
+    return "ActionPilot encountered a server problem. Please try again shortly.";
+  }
+  return "ActionPilot could not complete that request. Please try again.";
 }
 
 function actionDescription(action) {
@@ -159,13 +220,11 @@ async function submitRequest() {
   setBusy(true, "Planning...");
   elements.resultsCard.hidden = true;
   try {
-    const response = await fetch("/api/agent/plan", {
+    const payload = await requestJson("/api/agent/plan", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ request: elements.input.value })
-    });
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload.error || "The planner could not respond.");
+    }, "The planner could not respond.");
     renderPlan(payload.plan);
   } catch (error) {
     const message = friendlyError(error);
@@ -215,16 +274,14 @@ async function executePlan(button) {
   button.textContent = "Executing...";
   setBusy(true, "Executing...");
   try {
-    const response = await fetch("/api/agent/execute", {
+    const payload = await requestJson("/api/agent/execute", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         planId: state.plan.id,
         confirmed: Boolean(state.plan.requiresConfirmation)
       })
-    });
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload.error || "The plan could not be executed.");
+    }, "The plan could not be executed.");
     renderResults(payload.result);
     await refreshWorkspace();
   } catch (error) {
@@ -238,9 +295,7 @@ async function executePlan(button) {
 
 async function refreshWorkspace() {
   try {
-    const response = await fetch("/api/workspace");
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload.error || "Workspace unavailable.");
+    const payload = await requestJson("/api/workspace", undefined, "Workspace unavailable.");
     elements.workspaceFiles.replaceChildren();
     const files = payload.workspace.files || [];
     if (!files.length) {
@@ -255,7 +310,7 @@ async function refreshWorkspace() {
     const notes = payload.workspace.notes || [];
     elements.notesSummary.textContent = notes.length + " saved note" + (notes.length === 1 ? "" : "s");
   } catch (error) {
-    elements.workspaceFiles.replaceChildren(createElement("div", "loading-line", error.message));
+    elements.workspaceFiles.replaceChildren(createElement("div", "loading-line", friendlyError(error)));
   }
 }
 
