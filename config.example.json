@@ -1,0 +1,8 @@
+{
+  "llm": {
+    "apiKey": "PASTE_YOUR_GEMINI_API_KEY_HERE",
+    "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    "model": "gemini-3.8-flash",
+    "timeoutMs": 60000
+  }
+}

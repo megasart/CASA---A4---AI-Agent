@@ -1,4 +1,4 @@
-import { promises as fs } from "node:fs";
+import { promises as fs, readFileSync } from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 
@@ -7,6 +7,7 @@ const MAX_ACTIONS = 5;
 const MAX_FILE_BYTES = 100 * 1024;
 const MAX_WRITE_BYTES = 50 * 1024;
 const PLAN_TTL_MS = 10 * 60 * 1000;
+const DEFAULT_LLM_TIMEOUT_MS = 60 * 1000;
 const NOTES_FILE = ".agent-notes.json";
 const AUDIT_FILE = ".agent-audit.log";
 const INTERNAL_FILES = new Set([NOTES_FILE, AUDIT_FILE]);
@@ -97,6 +98,21 @@ export class ConfirmationRequiredError extends AgentError {
   constructor(plan) {
     super("Confirmation is required before changing workspace data.", "CONFIRMATION_REQUIRED", 409, { plan });
     this.name = "ConfirmationRequiredError";
+  }
+}
+
+function loadLocalConfig(configPath = path.join(process.cwd(), "config.local.json")) {
+  try {
+    const parsed = JSON.parse(readFileSync(configPath, "utf8"));
+    if (isObject(parsed?.llm)) {
+      return parsed.llm;
+    }
+    return isObject(parsed) ? parsed : {};
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      return {};
+    }
+    throw new AgentError("config.local.json contains invalid JSON.", "INVALID_CONFIG", 500);
   }
 }
 
@@ -441,14 +457,17 @@ function demoPlan(request) {
 }
 
 async function callLlm(request, options) {
-  const apiKey = options.apiKey || process.env.LLM_API_KEY || process.env.OPENAI_API_KEY;
+  const baseUrl = options.baseUrl || process.env.LLM_BASE_URL || "https://api.openai.com/v1/chat/completions";
+  const localOllama = /localhost:11434|127\.0\.0\.1:11434/i.test(baseUrl);
+  const apiKey = options.apiKey || process.env.LLM_API_KEY || process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || (localOllama ? "ollama" : "");
   if (!apiKey || options.disableLlm) {
     return { source: "demo", plan: demoPlan(request) };
   }
-  const baseUrl = options.baseUrl || process.env.LLM_BASE_URL || "https://api.openai.com/v1/chat/completions";
   const model = options.model || process.env.LLM_MODEL || "gpt-4o-mini";
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 20000);
+  const configuredTimeout = Number(options.timeoutMs || process.env.LLM_TIMEOUT_MS || DEFAULT_LLM_TIMEOUT_MS);
+  const timeoutMs = Number.isFinite(configuredTimeout) && configuredTimeout >= 5000 ? configuredTimeout : DEFAULT_LLM_TIMEOUT_MS;
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(baseUrl, {
       method: "POST",
@@ -588,7 +607,20 @@ export function createAgent(options = {}) {
   const root = path.resolve(options.rootDir || path.join(process.cwd(), "data", "workspace"));
   const auditPath = path.join(root, AUDIT_FILE);
   const pendingPlans = new Map();
-  const configuredKey = options.apiKey || process.env.LLM_API_KEY || process.env.OPENAI_API_KEY;
+  const localConfig = options.config || loadLocalConfig(options.configPath);
+  const configuredBaseUrl = options.baseUrl || process.env.LLM_BASE_URL || localConfig.baseUrl;
+  const localOllama = /localhost:11434|127\.0\.0\.1:11434/i.test(configuredBaseUrl || "");
+  const configuredKey = options.apiKey || process.env.LLM_API_KEY || process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || localConfig.apiKey || (localOllama ? "ollama" : "");
+  const configuredModel = options.model || process.env.LLM_MODEL || localConfig.model || "gpt-4o-mini";
+  const configuredTimeout = options.timeoutMs || process.env.LLM_TIMEOUT_MS || localConfig.timeoutMs || DEFAULT_LLM_TIMEOUT_MS;
+  const llmOptions = {
+    ...options,
+    apiKey: configuredKey,
+    baseUrl: configuredBaseUrl,
+    model: configuredModel,
+    timeoutMs: configuredTimeout,
+    disableLlm: options.disableLlm === true
+  };
 
   async function audit(event, payload) {
     const entry = {
@@ -612,7 +644,7 @@ export function createAgent(options = {}) {
     if (request.length > MAX_REQUEST_LENGTH) {
       throw new AgentError("Requests must be under " + MAX_REQUEST_LENGTH + " characters.", "REQUEST_TOO_LONG");
     }
-    const result = await callLlm(request, options);
+    const result = await callLlm(request, llmOptions);
     const plan = normalizePlan(root, request, result.plan, result.source);
     pendingPlans.set(plan.id, { plan, expiresAt: Date.now() + PLAN_TTL_MS });
     await audit("plan_created", {
@@ -751,7 +783,7 @@ export function createAgent(options = {}) {
     executePlan,
     workspaceSnapshot,
     root,
-    isLlmConfigured: Boolean(configuredKey && !options.disableLlm),
+    isLlmConfigured: Boolean(configuredKey && configuredModel && !options.disableLlm),
     allowedActions: Object.keys(ACTIONS)
   };
 }

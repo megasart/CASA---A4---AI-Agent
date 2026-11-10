@@ -33,15 +33,21 @@ Without configuration, the app is in Demo mode. Try:
 - Calculate 12 * (3 + 4)
 - Create a note titled "Demo" saying follow up on the project
 
-To enable an LLM planner, copy .env.example to .env and export the variables in your shell:
+To enable an LLM planner without entering variables every time, copy config.example.json to config.local.json and replace the placeholder key. The local config file is ignored by Git.
+
+For Google Gemini, the config file can contain:
 
 ~~~text
-LLM_API_KEY=your_key
-LLM_BASE_URL=https://api.openai.com/v1/chat/completions
-LLM_MODEL=gpt-4o-mini
+{
+  "llm": {
+    "apiKey": "your-gemini-api-key",
+    "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    "model": "gemini-3.8-flash"
+  }
+}
 ~~~
 
-The server reads environment variables directly. Do not commit .env or API keys.
+The server reads this file automatically. Environment variables still override the file. Do not commit config.local.json, .env, or API keys.
 
 ## Architecture
 
