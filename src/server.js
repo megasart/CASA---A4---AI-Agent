@@ -178,7 +178,7 @@ const server = http.createServer(async (request, response) => {
 
 async function start() {
   await agent.initialize();
-  server.listen(port, () => {
+  server.listen(port, "0.0.0.0", () => {
     console.log("ActionPilot listening on http://localhost:" + port);
     console.log("Planner mode: " + (agent.isLlmConfigured ? "LLM" : "demo"));
   });

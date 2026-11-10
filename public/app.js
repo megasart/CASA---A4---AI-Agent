@@ -1,6 +1,7 @@
 const state = {
   plan: null,
-  busy: false
+  busy: false,
+  workspaceMode: null
 };
 
 const elements = {
@@ -14,6 +15,17 @@ const elements = {
   workspaceFiles: document.getElementById("workspace-files"),
   notesSummary: document.getElementById("notes-summary"),
   refreshButton: document.getElementById("refresh-button"),
+  addFileButton: document.getElementById("add-file-button"),
+  addNoteButton: document.getElementById("add-note-button"),
+  workspaceForm: document.getElementById("workspace-form"),
+  workspaceFormTitle: document.getElementById("workspace-form-title"),
+  workspaceActionForm: document.getElementById("workspace-action-form"),
+  workspaceNameLabel: document.getElementById("workspace-name-label"),
+  workspaceContentLabel: document.getElementById("workspace-content-label"),
+  workspaceName: document.getElementById("workspace-name"),
+  workspaceContent: document.getElementById("workspace-content"),
+  workspaceFormHint: document.getElementById("workspace-form-hint"),
+  closeWorkspaceForm: document.getElementById("close-workspace-form"),
   modeLabel: document.getElementById("mode-label"),
   statusDot: document.getElementById("status-dot"),
   liveRegion: document.getElementById("live-region")
@@ -45,6 +57,14 @@ function showError(message) {
   const box = createElement("div", "inline-error");
   box.append(createElement("strong", "", "Something needs attention"), createElement("p", "", message));
   elements.planCard.append(box);
+}
+
+function friendlyError(error) {
+  const message = String(error?.message || error || "Unknown error");
+  if (/network|failed to fetch|fetch resource/i.test(message)) {
+    return "The browser cannot reach the ActionPilot backend. Locally, run npm.cmd start and open http://localhost:3000. For deployment, deploy the Node server with npm start rather than only the public folder.";
+  }
+  return message;
 }
 
 function actionDescription(action) {
@@ -131,6 +151,10 @@ function renderResults(result) {
 
 async function planRequest(event) {
   event.preventDefault();
+  await submitRequest();
+}
+
+async function submitRequest() {
   if (state.busy) return;
   setBusy(true, "Planning...");
   elements.resultsCard.hidden = true;
@@ -144,11 +168,45 @@ async function planRequest(event) {
     if (!response.ok) throw new Error(payload.error || "The planner could not respond.");
     renderPlan(payload.plan);
   } catch (error) {
-    showError(error.message);
-    announce(error.message);
+    const message = friendlyError(error);
+    showError(message);
+    announce(message);
   } finally {
     setBusy(false, "Build plan");
   }
+}
+
+function openWorkspaceForm(mode) {
+  state.workspaceMode = mode;
+  const isFile = mode === "file";
+  elements.workspaceForm.hidden = false;
+  elements.workspaceFormTitle.textContent = isFile ? "Add a file" : "Add a note";
+  elements.workspaceNameLabel.textContent = isFile ? "File name" : "Note title";
+  elements.workspaceContentLabel.textContent = isFile ? "File contents" : "Note body";
+  elements.workspaceName.placeholder = isFile ? "example.txt" : "Project reminder";
+  elements.workspaceContent.placeholder = isFile ? "Write the text to save..." : "Write the note...";
+  elements.workspaceFormHint.textContent = "The agent will show a confirmation plan before saving it.";
+  elements.workspaceName.focus();
+}
+
+function closeWorkspaceForm() {
+  state.workspaceMode = null;
+  elements.workspaceForm.hidden = true;
+  elements.workspaceActionForm.reset();
+}
+
+async function planWorkspaceAddition(event) {
+  event.preventDefault();
+  const name = elements.workspaceName.value.trim();
+  const content = elements.workspaceContent.value.trim();
+  if (!name || !content) return;
+  if (state.workspaceMode === "file") {
+    elements.input.value = "Write file " + name + " containing " + content;
+  } else {
+    elements.input.value = "Create a note titled " + JSON.stringify(name) + " saying " + content;
+  }
+  closeWorkspaceForm();
+  await submitRequest();
 }
 
 async function executePlan(button) {
@@ -170,7 +228,7 @@ async function executePlan(button) {
     renderResults(payload.result);
     await refreshWorkspace();
   } catch (error) {
-    showError(error.message);
+    showError(friendlyError(error));
   } finally {
     button.disabled = false;
     button.textContent = state.plan && state.plan.requiresConfirmation ? "Confirm & execute" : "Execute plan";
@@ -221,6 +279,10 @@ async function loadHealth() {
 
 elements.form.addEventListener("submit", planRequest);
 elements.refreshButton.addEventListener("click", refreshWorkspace);
+elements.addFileButton.addEventListener("click", () => openWorkspaceForm("file"));
+elements.addNoteButton.addEventListener("click", () => openWorkspaceForm("note"));
+elements.closeWorkspaceForm.addEventListener("click", closeWorkspaceForm);
+elements.workspaceActionForm.addEventListener("submit", planWorkspaceAddition);
 document.querySelectorAll("[data-example]").forEach((button) => {
   button.addEventListener("click", () => {
     elements.input.value = button.dataset.example;

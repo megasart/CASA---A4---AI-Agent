@@ -110,16 +110,27 @@
               <div id="workspace-files" class="file-list">
                 <div class="loading-line">Loading workspace...</div>
               </div>
+              <div class="workspace-actions">
+                <button class="secondary-button" type="button" id="add-file-button">+ Add file</button>
+                <button class="secondary-button" type="button" id="add-note-button">+ Add note</button>
+              </div>
+              <div class="workspace-form" id="workspace-form" hidden>
+                <div class="workspace-form-heading">
+                  <strong id="workspace-form-title">Add to workspace</strong>
+                  <button class="close-button" type="button" id="close-workspace-form" aria-label="Close add form">×</button>
+                </div>
+                <form id="workspace-action-form">
+                  <label for="workspace-name" id="workspace-name-label">Name</label>
+                  <input id="workspace-name" type="text" maxlength="120" required />
+                  <label for="workspace-content" id="workspace-content-label">Content</label>
+                  <textarea id="workspace-content" rows="4" maxlength="4000" required></textarea>
+                  <div class="workspace-form-footer">
+                    <span class="hint" id="workspace-form-hint">The agent will show a confirmation plan.</span>
+                    <button class="secondary-button filled" type="submit">Build plan</button>
+                  </div>
+                </form>
+              </div>
               <div class="notes-summary" id="notes-summary"></div>
-            </article>
-
-            <article class="card rubric-card">
-              <div class="section-kicker">PROJECT FIT</div>
-              <h2>Built for the rubric</h2>
-              <div class="rubric-item"><span>01</span><strong>LLM integration</strong></div>
-              <div class="rubric-item"><span>02</span><strong>Action interpreter</strong></div>
-              <div class="rubric-item"><span>03</span><strong>UI and status feedback</strong></div>
-              <div class="rubric-item"><span>04</span><strong>Safety and logging</strong></div>
             </article>
           </aside>
         </section>
