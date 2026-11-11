@@ -500,6 +500,12 @@ async function callLlm(request, options) {
     }
     if (!response.ok) {
       const providerMessage = clip(await response.text(), 300);
+      if ([500, 502, 503, 504].includes(response.status)) {
+        throw new AgentError("The LLM provider is temporarily unavailable: " + providerMessage, "LLM_PROVIDER_UNAVAILABLE", 503, { providerStatus: response.status });
+      }
+      if ([400, 401, 403].includes(response.status) && /api key|authentication|unauthorized|credential/i.test(providerMessage)) {
+        throw new AgentError("The LLM provider rejected the API credentials: " + providerMessage, "LLM_AUTH_ERROR", 502, { providerStatus: response.status });
+      }
       throw new AgentError("The LLM provider returned an error: " + providerMessage, "LLM_PROVIDER_ERROR", 502);
     }
     const payload = await response.json();

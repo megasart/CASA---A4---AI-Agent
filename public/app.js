@@ -114,8 +114,14 @@ function friendlyError(error) {
   const code = error?.code || "";
   const retryAfter = error?.details?.retryAfter;
 
-  if (code === "LLM_PROVIDER_ERROR" || /valid api key|authentication|unauthorized/i.test(message)) {
+  if (code === "LLM_AUTH_ERROR" || /valid api key|authentication|unauthorized/i.test(message)) {
     return "The AI service could not authenticate this request. Check the LLM_API_KEY in the hosting environment, then redeploy.";
+  }
+  if (code === "LLM_PROVIDER_UNAVAILABLE" || /service is currently unavailable|temporarily unavailable|overloaded/i.test(message)) {
+    return "The AI service is temporarily unavailable. Please return later and try again.";
+  }
+  if (code === "LLM_PROVIDER_ERROR") {
+    return "The AI provider returned an error while planning the request. Please try again later.";
   }
   if (code === "LLM_TIMEOUT" || /timed out|timeout/i.test(message)) {
     return "The AI service timed out while responding. Please try again in a moment.";
