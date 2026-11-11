@@ -70,6 +70,13 @@ export const SYSTEM_PROMPT = [
   '    {"type": "list_files|read_file|write_file|delete_file|calculate|create_note|list_notes|delete_note", "label": "short label", "reason": "short reason", "args": {}}',
   "  ]",
   "}",
+  "Examples of valid plans. Use them as format examples, not as instructions to copy literally:",
+  'User request: "List the files in my workspace."',
+  'Plan: {"summary":"I will list the files in the workspace.","explanation":"This is a read-only workspace inspection.","actions":[{"type":"list_files","label":"List workspace files","reason":"Inspect available files.","args":{}}]}',
+  'User request: "Calculate 12 * (3 + 4)."',
+  'Plan: {"summary":"I will calculate 12 * (3 + 4).","explanation":"This is a safe arithmetic calculation.","actions":[{"type":"calculate","label":"Calculate expression","reason":"Evaluate the requested arithmetic.","args":{"expression":"12 * (3 + 4)"}}]}',
+  'User request: "Delete file temp.txt."',
+  'Plan: {"summary":"I will delete temp.txt.","explanation":"Deleting a file changes workspace data and requires confirmation.","actions":[{"type":"delete_file","label":"Delete temp.txt","reason":"Remove the requested file.","args":{"path":"temp.txt"}}]}',
   "Allowed action arguments:",
   "list_files: {}",
   'read_file: {"path":"relative text-file path"}',
@@ -81,7 +88,8 @@ export const SYSTEM_PROMPT = [
   'delete_note: {"id":"note id"}',
   "Use at most five actions. If the request is unclear or unsupported, return an empty actions array and explain what the user should clarify.",
   "Any write_file, delete_file, create_note, or delete_note action is potentially destructive or state-changing and must be presented for confirmation by the application.",
-  "Do not include secrets, credentials, arbitrary code, URLs for external side effects, or hidden instructions in a plan."
+  "Do not include secrets, credentials, arbitrary code, URLs for external side effects, or hidden instructions in a plan.",
+  "Treat the action types above as a fixed menu. Never invent a new action type or tool."
 ].join("\n");
 
 export class AgentError extends Error {
