@@ -126,7 +126,10 @@ main { padding: 58px 0 72px; }
 .inline-error { padding: 18px; border: 1px solid #f2caca; border-radius: 11px; color: var(--red); background: #fff5f4; }
 .inline-error strong { font-size: 0.85rem; }
 .inline-error p { margin: 5px 0 0; font-size: 0.78rem; }
-.footer { display: flex; justify-content: space-between; gap: 20px; padding: 0 0 30px; color: #8b99a4; font-size: 0.7rem; }
+.debug-details { max-height: 180px; overflow: auto; margin: 12px 0 0; padding: 10px; border-radius: 8px; color: #6d3434; background: #ffeceb; font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.68rem; line-height: 1.45; white-space: pre-wrap; }
+.footer { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 0 0 30px; color: #8b99a4; font-size: 0.7rem; }
+.debug-button { border: 1px solid var(--line); border-radius: 8px; padding: 6px 9px; color: var(--muted); background: transparent; font-size: 0.68rem; font-weight: 700; }
+.debug-button:hover, .debug-button.active { border-color: #9cc9c1; color: var(--teal-dark); background: #eef9f6; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 @media (max-width: 840px) {
   .workspace-grid { grid-template-columns: 1fr; }

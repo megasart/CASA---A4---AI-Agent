@@ -747,7 +747,14 @@ export function createAgent(options = {}) {
         });
       } catch (error) {
         const message = error instanceof AgentError ? error.message : "The action failed.";
-        results.push({ actionId: action.id, type: action.type, label: action.label, status: "error", error: message });
+        results.push({
+          actionId: action.id,
+          type: action.type,
+          label: action.label,
+          status: "error",
+          code: error instanceof AgentError ? error.code : "ACTION_ERROR",
+          error: message
+        });
         await audit("action_failed", {
           planId: plan.id,
           actionId: action.id,

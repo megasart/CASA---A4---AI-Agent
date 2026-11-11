@@ -1,7 +1,10 @@
 const state = {
   plan: null,
   busy: false,
-  workspaceMode: null
+  workspaceMode: null,
+  debugMode: false,
+  lastError: null,
+  lastResult: null
 };
 
 const elements = {
@@ -28,7 +31,8 @@ const elements = {
   closeWorkspaceForm: document.getElementById("close-workspace-form"),
   modeLabel: document.getElementById("mode-label"),
   statusDot: document.getElementById("status-dot"),
-  liveRegion: document.getElementById("live-region")
+  liveRegion: document.getElementById("live-region"),
+  debugToggle: document.getElementById("debug-toggle")
 };
 
 function createElement(tag, className, text) {
@@ -52,11 +56,25 @@ function setBusy(isBusy, label) {
   elements.planButton.querySelector("span:first-child").textContent = label || (isBusy ? "Working..." : "Build plan");
 }
 
-function showError(message) {
+function technicalError(error) {
+  const code = error?.code ? "[" + error.code + "] " : "";
+  const status = error?.status ? " (HTTP " + error.status + ")" : "";
+  return code + String(error?.message || error || "Unknown error") + status;
+}
+
+function renderError(message) {
   elements.planCard.replaceChildren();
   const box = createElement("div", "inline-error");
   box.append(createElement("strong", "", "Something needs attention"), createElement("p", "", message));
+  if (state.debugMode && state.lastError) {
+    box.append(createElement("pre", "debug-details", technicalError(state.lastError)));
+  }
   elements.planCard.append(box);
+}
+
+function showError(message, error) {
+  state.lastError = error || new Error(message);
+  renderError(message);
 }
 
 async function requestJson(url, options, fallbackMessage) {
@@ -83,7 +101,8 @@ async function requestJson(url, options, fallbackMessage) {
     const error = new Error(payload.error || fallbackMessage);
     error.code = payload.code || "SERVER_ERROR";
     error.status = response.status;
-    error.details = payload.details;
+    const retryAfter = response.headers.get("Retry-After");
+    error.details = payload.details || (retryAfter ? { retryAfter } : undefined);
     throw error;
   }
 
@@ -99,10 +118,13 @@ function friendlyError(error) {
     return "The AI service could not authenticate this request. Check the LLM_API_KEY in the hosting environment, then redeploy.";
   }
   if (code === "LLM_TIMEOUT" || /timed out|timeout/i.test(message)) {
-    return "The AI service took too long to respond. Please try again in a moment.";
+    return "The AI service timed out while responding. Please try again in a moment.";
   }
-  if (code === "LLM_RATE_LIMITED" || code === "RATE_LIMITED") {
-    return retryAfter ? "The AI service is temporarily busy. Please try again in about " + retryAfter + " seconds." : "The service is temporarily busy. Please try again in a moment.";
+  if (code === "LLM_RATE_LIMITED") {
+    return retryAfter ? "The AI service has reached its request limit. Please return later or try again in about " + retryAfter + " seconds." : "The AI service has reached its request limit. Please return later.";
+  }
+  if (code === "RATE_LIMITED") {
+    return retryAfter ? "ActionPilot has reached its request limit. Please return later or try again in about " + retryAfter + " seconds." : "ActionPilot has reached its request limit. Please return later.";
   }
   if (code === "LLM_NETWORK_ERROR") {
     return "The AI service could not be reached. Check the provider connection and try again.";
@@ -119,13 +141,43 @@ function friendlyError(error) {
   if (code === "PLAN_NOT_FOUND") {
     return "That plan expired. Please build the plan again.";
   }
+  if (code === "INVALID_JSON" || code === "BODY_TOO_LARGE") {
+    return "The request could not be read. Please try a shorter request.";
+  }
+  if (code === "EMPTY_REQUEST") {
+    return "Please enter a task before building a plan.";
+  }
+  if (code === "REQUEST_TOO_LONG") {
+    return "That request is too long. Please shorten it and try again.";
+  }
+  if (code === "INVALID_EXPRESSION") {
+    return "The calculator could not understand that expression. Try something like 12 * (3 + 4).";
+  }
+  if (code === "FILE_NOT_FOUND" || code === "NOTE_NOT_FOUND" || /does not exist|no note matched|not found/i.test(message)) {
+    return "The requested file or note could not be found.";
+  }
+  if (code === "FILE_NOT_DELETABLE") {
+    return "Only individual files can be removed from the workspace.";
+  }
+  if (code === "FILE_NOT_READABLE") {
+    return "That file cannot be read. Only text files within the workspace are supported.";
+  }
+  if (code === "INVALID_CONFIG" || code === "NOTES_STORE_ERROR") {
+    return "A runtime configuration or storage error occurred on the server. Please try again later.";
+  }
+  if (code === "ACTION_ERROR") {
+    return "A runtime error occurred while running that action. Please try again later.";
+  }
+  if (code === "INVALID_PLAN" || code === "UNSUPPORTED_ACTION") {
+    return "The AI returned an action ActionPilot cannot safely run. Please try rephrasing the request.";
+  }
   if (code === "NETWORK_ERROR" || /network|failed to fetch|fetch resource/i.test(message)) {
     return "The ActionPilot service could not be reached. Check your connection and try again.";
   }
   if (code === "SERVER_ERROR") {
-    return "ActionPilot encountered a server problem. Please try again shortly.";
+    return "A runtime error occurred on the ActionPilot server. Please try again shortly.";
   }
-  return "ActionPilot could not complete that request. Please try again.";
+  return "ActionPilot could not complete that request. A runtime error may have occurred; please try again.";
 }
 
 function actionDescription(action) {
@@ -188,7 +240,8 @@ function renderPlan(plan) {
   announce("Plan ready for review.");
 }
 
-function renderResults(result) {
+function renderResults(result, shouldScroll = true) {
+  state.lastResult = result;
   elements.resultsCard.hidden = false;
   elements.resultsList.replaceChildren();
   elements.resultStatus.textContent = result.status === "success" ? "Completed" : "Completed with errors";
@@ -202,11 +255,14 @@ function renderResults(result) {
       const pre = createElement("pre", "result-data", JSON.stringify(item.result, null, 2));
       row.append(pre);
     } else {
-      row.append(createElement("p", "result-message", item.error));
+      const itemError = { message: item.error, code: item.code };
+      row.append(createElement("p", "result-message", state.debugMode ? technicalError(itemError) : friendlyError(itemError)));
     }
     elements.resultsList.append(row);
   });
-  elements.resultsCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  if (shouldScroll) {
+    elements.resultsCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
   announce("Execution report is ready.");
 }
 
@@ -219,6 +275,8 @@ async function submitRequest() {
   if (state.busy) return;
   setBusy(true, "Planning...");
   elements.resultsCard.hidden = true;
+  state.lastError = null;
+  state.lastResult = null;
   try {
     const payload = await requestJson("/api/agent/plan", {
       method: "POST",
@@ -228,7 +286,7 @@ async function submitRequest() {
     renderPlan(payload.plan);
   } catch (error) {
     const message = friendlyError(error);
-    showError(message);
+    showError(message, error);
     announce(message);
   } finally {
     setBusy(false, "Build plan");
@@ -285,7 +343,9 @@ async function executePlan(button) {
     renderResults(payload.result);
     await refreshWorkspace();
   } catch (error) {
-    showError(friendlyError(error));
+    const message = friendlyError(error);
+    showError(message, error);
+    announce(message);
   } finally {
     button.disabled = false;
     button.textContent = state.plan && state.plan.requiresConfirmation ? "Confirm & execute" : "Execute plan";
@@ -338,6 +398,18 @@ elements.addFileButton.addEventListener("click", () => openWorkspaceForm("file")
 elements.addNoteButton.addEventListener("click", () => openWorkspaceForm("note"));
 elements.closeWorkspaceForm.addEventListener("click", closeWorkspaceForm);
 elements.workspaceActionForm.addEventListener("submit", planWorkspaceAddition);
+elements.debugToggle.addEventListener("click", () => {
+  state.debugMode = !state.debugMode;
+  elements.debugToggle.textContent = "Debug details: " + (state.debugMode ? "On" : "Off");
+  elements.debugToggle.setAttribute("aria-pressed", String(state.debugMode));
+  elements.debugToggle.classList.toggle("active", state.debugMode);
+  if (state.lastError) {
+    renderError(friendlyError(state.lastError));
+  }
+  if (state.lastResult) {
+    renderResults(state.lastResult, false);
+  }
+});
 document.querySelectorAll("[data-example]").forEach((button) => {
   button.addEventListener("click", () => {
     elements.input.value = button.dataset.example;
